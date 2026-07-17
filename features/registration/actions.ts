@@ -58,7 +58,7 @@ export async function submitStep1(data: any) {
 export async function submitStep2(userId: string, data: any) {
   try {
     const validated = step2Schema.parse(data)
-    
+
     await prisma.customerProfile.upsert({
       where: { userId },
       create: {
@@ -71,7 +71,6 @@ export async function submitStep2(userId: string, data: any) {
         maritalStatus: validated.maritalStatus,
         nationality: validated.nationality,
         phoneNumber: validated.phoneNumber,
-
         residencyStatus: 'CITIZEN',
         verificationStatus: 'PENDING_REVIEW',
       },
@@ -87,12 +86,15 @@ export async function submitStep2(userId: string, data: any) {
         residencyStatus: validated.residencyStatus,
       }
     })
-    
+
     return { success: true }
-  }catch (error) {
-  console.error(error);
-  throw error;
-}
+  } catch (error) {
+    console.error(error)
+    if (error instanceof Error) {
+      return { success: false, error: error.message }
+    }
+    return { success: false, error: 'Failed to save personal information' }
+  }
 }
 
 // Step 3: Save identification

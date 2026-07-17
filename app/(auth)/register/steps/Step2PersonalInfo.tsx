@@ -36,6 +36,7 @@ export function Step2PersonalInfo({ userId, onComplete, onBack }: Step2PersonalI
       } else {
         toast.error(result.error || 'Failed to save information')
       }
+      
     } catch (error) {
       toast.error('Something went wrong')
     } finally {
@@ -138,7 +139,7 @@ export function Step2PersonalInfo({ userId, onComplete, onBack }: Step2PersonalI
             </Button>
             <Button type="submit" className="flex-1" isLoading={isLoading}>
               Continue
-            </Button>
+            </Button> 
           </div>
         </form>
       </FormProvider>
