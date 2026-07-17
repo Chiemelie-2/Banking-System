@@ -11,6 +11,9 @@ const globalForPrisma = globalThis as unknown as {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }, // Supabase requires SSL
+  max: 5,                              // safe per-instance cap for serverless
+  connectionTimeoutMillis: 10_000,
 })
 
 const adapter = new PrismaPg(pool)
@@ -19,6 +22,7 @@ export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     adapter,
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   })
 
 if (process.env.NODE_ENV !== 'production') {

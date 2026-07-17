@@ -9,6 +9,6 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    url: env("MIGRATE_DATABASE_URL"), // session pooler — supports pg_advisory_lock
   },
-});
+}); 

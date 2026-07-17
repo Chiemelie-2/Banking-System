@@ -113,7 +113,7 @@ model CustomerProfile {
   maritalStatus       MaritalStatus
   nationality         String
   phoneNumber         String
-  residencyStatus?     ResidencyStatus
+  residencyStatus     ResidencyStatus?
   passportNumber      String?
   countryOfCitizenship String?
   profilePhoto        String?           // Cloudinary URL
