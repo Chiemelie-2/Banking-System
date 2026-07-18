@@ -149,12 +149,13 @@ export const step6Schema = z.object({
 })
 
 // Step 7: Terms & Declaration
+// Step 7: Terms & Declaration
 export const step7Schema = z.object({
   termsAccepted: z.literal(true, {
-    errorMap: () => ({ message: 'You must accept the terms and conditions' }),
+    error: 'You must accept the terms and conditions',
   }),
   declarationConfirmed: z.literal(true, {
-    errorMap: () => ({ message: 'You must confirm the information is accurate' }),
+    error: 'You must confirm the information is accurate',
   }),
 })
 
