@@ -83,7 +83,6 @@ export async function submitStep2(userId: string, data: any) {
         maritalStatus: validated.maritalStatus,
         nationality: validated.nationality,
         phoneNumber: validated.phoneNumber,
-        residencyStatus: validated.residencyStatus,
       }
     })
 
