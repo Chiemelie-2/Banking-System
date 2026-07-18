@@ -50,10 +50,10 @@ export const step2Schema = z.object({
       return age >= 18
     }, 'You must be at least 18 years old'),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER'], {
-    required_error: 'Please select your gender',
+    error: 'Please select your gender',
   }),
   maritalStatus: z.enum(['SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED'], {
-    required_error: 'Please select your marital status',
+    error: 'Please select your marital status',
   }),
   nationality: z.string()
     .min(1, 'Nationality is required'),
@@ -73,7 +73,7 @@ export const step3Schema = z.object({
     'VOTERS_CARD', 
     'RESIDENCE_PERMIT'
   ], {
-    required_error: 'Please select identification type',
+    error: 'Please select identification type',
   }),
   idNumber: z.string()
     .min(1, 'ID number is required')
@@ -84,7 +84,7 @@ export const step3Schema = z.object({
 // Step 4: Residency Status
 export const step4Schema = z.object({
   residencyStatus: z.enum(['CITIZEN', 'RESIDENT', 'NON_RESIDENT'], {
-    required_error: 'Please select your residency status',
+    error: 'Please select your residency status',
   }),
   passportNumber: z.string()
     .optional()
