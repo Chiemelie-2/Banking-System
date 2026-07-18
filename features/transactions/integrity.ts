@@ -1,6 +1,14 @@
 // features/transactions/integrity.ts
+// features/transactions/integrity.ts
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
+import { randomBytes } from 'crypto'
+
+function generateTransactionReference(): string {
+  const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+  const randomPart = randomBytes(6).toString('hex').toUpperCase()
+  return `TXN-${datePart}-${randomPart}`
+}
 
 export async function adjustBalance(
   accountId: string,
@@ -10,26 +18,24 @@ export async function adjustBalance(
   adminId: string,
   ipAddress?: string
 ) {
-  // NEVER update balance directly - always use transaction
   return await prisma.$transaction(async (tx) => {
-    // Lock the account row
-    const account = await tx.bankAccount.findUnique({
-      where: { id: accountId },
-      select: { balance: true, userId: true }
-    })
-    
+    // Row-level lock — blocks concurrent writers to this account until commit
+    const rows = await tx.$queryRaw<Array<{ balance: Prisma.Decimal; userId: string }>>`
+      SELECT balance, "userId" FROM bank_accounts WHERE id = ${accountId} FOR UPDATE
+    `
+    const account = rows[0]
     if (!account) throw new Error('Account not found')
-    
-    const currentBalance = Number(account.balance)
-    const newBalance = type === 'CREDIT' 
-      ? currentBalance + amount 
-      : currentBalance - amount
-    
-    if (newBalance < 0) {
+
+    const currentBalance = new Prisma.Decimal(account.balance)
+    const changeAmount = new Prisma.Decimal(amount)
+    const newBalance = type === 'CREDIT'
+      ? currentBalance.plus(changeAmount)
+      : currentBalance.minus(changeAmount)
+
+    if (newBalance.isNegative()) {
       throw new Error('Insufficient virtual balance')
     }
-    
-    // Create transaction record
+
     const transaction = await tx.transaction.create({
       data: {
         accountId,
@@ -37,27 +43,26 @@ export async function adjustBalance(
         amount,
         description,
         status: 'COMPLETED',
-        createdByAdmin: adminId
+        createdByAdmin: adminId,
+        reference: generateTransactionReference(),
       }
     })
-    
-    // Update balance within same transaction
+
     await tx.bankAccount.update({
       where: { id: accountId },
       data: { balance: newBalance }
     })
-    
-    // Create audit log
+
     await tx.auditLog.create({
       data: {
         adminId,
         action: type === 'CREDIT' ? 'ADD_FUNDS' : 'DEDUCT_FUNDS',
         targetUserId: account.userId,
-        details: { accountId, amount, newBalance, transactionId: transaction.id },
+        details: { accountId, amount, newBalance: newBalance.toString(), transactionId: transaction.id },
         ipAddress
       }
     })
-    
-    return { transaction, newBalance }
+
+    return { transaction, newBalance: newBalance.toNumber() }
   })
 }
