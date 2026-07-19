@@ -1,62 +1,68 @@
-// app/(auth)/forgot-password/page.tsx
+// app/(auth)/forgot-password/page.tsx (update the onSubmit function)
 'use client'
 
 import { useState } from 'react'
 import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { requestPasswordReset } from '@/features/auth/actions'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { FormField } from '@/components/forms/FormField'
+import { toast } from 'sonner'
 import Link from 'next/link'
 
 const forgotPasswordSchema = z.object({
-  email: z.string()
-    .min(1, 'Email is required')
-    .email('Invalid email address'),
+  email: z.string().min(1, 'Email is required').email('Invalid email'),
 })
-
-type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>
 
 export default function ForgotPasswordPage() {
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const methods = useForm<ForgotPasswordForm>({
+  const methods = useForm({
     resolver: zodResolver(forgotPasswordSchema),
   })
 
-  const onSubmit = async (data: ForgotPasswordForm) => {
-    // We'll implement the actual API call in Stage 3
-    console.log('Password reset for:', data.email)
-    setIsSubmitted(true)
+  const onSubmit = async (data: { email: string }) => {
+    setIsLoading(true)
+    try {
+      const result = await requestPasswordReset(data)
+      if (result.success) {
+        setIsSubmitted(true)
+      } else {
+        toast.error(result.error)
+      }
+    } catch (error) {
+      toast.error('Something went wrong')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   if (isSubmitted) {
     return (
       <Card
         header={{
-          title: 'Check your email',
-          description: 'We sent a password reset link to your email address'
+          title: 'Check Your Email',
+          description: 'If an account exists, we sent a reset link'
         }}
       >
         <div className="text-center py-4">
-          <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
-            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
           </div>
           <p className="text-sm text-gray-600 mb-4">
-            Didn&apos;t receive the email? Check your spam folder or{' '}
-            <button 
-              onClick={() => setIsSubmitted(false)}
-              className="text-primary-600 hover:text-primary-700 font-medium"
-            >
-              try again
-            </button>
+            Check your email for the reset link. It expires in 1 hour.
           </p>
-          <Link href="/login" className="btn-secondary inline-block">
-            Back to Sign In
-          </Link>
+          <button 
+            onClick={() => setIsSubmitted(false)}
+            className="text-sm text-primary-600 hover:text-primary-700"
+          >
+            Try another email
+          </button>
         </div>
       </Card>
     )
@@ -65,7 +71,7 @@ export default function ForgotPasswordPage() {
   return (
     <Card
       header={{
-        title: 'Reset your password',
+        title: 'Forgot Password',
         description: 'Enter your email and we\'ll send you a reset link'
       }}
     >
@@ -78,7 +84,7 @@ export default function ForgotPasswordPage() {
             placeholder="you@example.com"
           />
 
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full" isLoading={isLoading}>
             Send Reset Link
           </Button>
         </form>
