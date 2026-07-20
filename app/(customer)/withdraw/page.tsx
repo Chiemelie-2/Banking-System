@@ -1,5 +1,4 @@
-// app/(customer)/deposit/page.tsx
-// app/(customer)/deposit/page.tsx
+// app/(customer)/withdraw/page.tsx
 'use client'
 
 import { useState } from 'react'
@@ -11,23 +10,21 @@ import { Button } from '@/components/ui/Button'
 import { AmountInput } from '@/components/forms/AmountInput'
 import { TransactionReceipt } from '@/components/forms/TransactionReceipt'
 import { toast } from 'sonner'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 
-const depositSchema = z.object({
+const withdrawSchema = z.object({
   amount: z.string()
     .min(1, 'Amount is required')
     .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, 'Enter a valid amount')
-    .refine((val) => parseFloat(val) <= 1000000, 'Maximum deposit is $1,000,000'),
-  description: z.string()
-    .max(200, 'Description too long')
-    .optional(),
+    .refine((val) => parseFloat(val) <= 50000, 'Maximum withdrawal is $50,000'),
+  description: z.string().max(200).optional(),
 })
 
-type DepositForm = z.infer<typeof depositSchema>
+type WithdrawForm = z.infer<typeof withdrawSchema>
 
-const QUICK_AMOUNTS = [100, 500, 1000, 5000, 10000]
+const QUICK_AMOUNTS = [20, 50, 100, 200, 500, 1000]
 
-export default function DepositPage() {
+export default function WithdrawPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showReceipt, setShowReceipt] = useState(false)
   const [transactionDetails, setTransactionDetails] = useState<any>(null)
@@ -39,29 +36,24 @@ export default function DepositPage() {
     watch,
     formState: { errors },
     reset,
-  } = useForm<DepositForm>({
-    resolver: zodResolver(depositSchema),
-    defaultValues: {
-      amount: '',
-      description: '',
-    }
+  } = useForm<WithdrawForm>({
+    resolver: zodResolver(withdrawSchema),
+    defaultValues: { amount: '', description: '' }
   })
 
   const watchedAmount = watch('amount')
+  const numAmount = watchedAmount ? parseFloat(watchedAmount) : 0
 
-  const onSubmit = async (data: DepositForm) => {
+  const onSubmit = async (data: WithdrawForm) => {
     setIsSubmitting(true)
-    
-    // Simulate API call delay
     await new Promise(resolve => setTimeout(resolve, 1500))
     
-    // This is a simulation - in production, this would call a server action
     setTransactionDetails({
-      type: 'deposit',
+      type: 'withdrawal',
       amount: parseFloat(data.amount),
-      toAccount: '****4582', // Would come from user's account
-      description: data.description || 'Cash Deposit',
-      reference: `DEP-${Date.now().toString(36).toUpperCase()}`,
+      fromAccount: '****4582',
+      description: data.description || 'Cash Withdrawal',
+      reference: `WTH-${Date.now().toString(36).toUpperCase()}`,
       date: new Date(),
     })
     
@@ -94,30 +86,43 @@ export default function DepositPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
             </svg>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Make a Deposit</h1>
-            <p className="text-sm text-gray-500">Add virtual funds to your account</p>
+            <h1 className="text-2xl font-bold text-gray-900">Withdraw Funds</h1>
+            <p className="text-sm text-gray-500">Withdraw virtual funds from your account</p>
           </div>
         </div>
       </motion.div>
 
+      {/* Balance Warning */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-xs text-gray-500">Available Balance</p>
+            <p className="text-lg font-bold text-gray-900">$12,450.00</p>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
       <Card>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Amount Input */}
           <div>
             <AmountInput
-              label="Enter Amount"
+              label="Withdrawal Amount"
               placeholder="0.00"
               error={errors.amount?.message}
               {...register('amount')}
             />
             
-            {/* Quick Amount Buttons */}
             <div className="flex gap-2 mt-3 flex-wrap">
               {QUICK_AMOUNTS.map((amount) => (
                 <button
@@ -126,79 +131,65 @@ export default function DepositPage() {
                   onClick={() => setValue('amount', amount.toString(), { shouldValidate: true })}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                     watchedAmount === amount.toString()
-                      ? 'bg-primary-100 text-primary-800 border-2 border-primary-500'
+                      ? 'bg-red-100 text-red-800 border-2 border-red-500'
                       : 'bg-gray-50 text-gray-700 border-2 border-transparent hover:border-gray-300'
                   }`}
                 >
-                  ${amount.toLocaleString()}
+                  ${amount}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Description */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">
               Description (Optional)
             </label>
             <textarea
               {...register('description')}
-              placeholder="What's this deposit for?"
+              placeholder="Reason for withdrawal?"
               rows={2}
               className="input-field resize-none"
             />
           </div>
 
-          {/* Deposit To Account (Read Only) */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="flex justify-between items-center">
+          {numAmount > 500 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex gap-3">
+              <svg className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
               <div>
-                <p className="text-xs text-gray-500">Depositing to</p>
-                <p className="text-sm font-medium text-gray-900">Primary Checking Account</p>
-                <p className="text-xs text-gray-500 font-mono">****4582</p>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+                <p className="text-xs font-medium text-orange-800">Large Withdrawal Alert</p>
+                <p className="text-xs text-orange-700 mt-0.5">
+                  Withdrawals over $500 require admin approval and may take 24-48 hours to process.
+                </p>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Simulation Notice */}
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex gap-3">
             <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
             <p className="text-xs text-yellow-700">
-              This is a <strong>simulation</strong>. Deposits are processed by an administrator and may take a moment to reflect in your balance.
+              <strong>Simulation Mode:</strong> This is not a real withdrawal. Funds will be deducted by an administrator.
             </p>
           </div>
 
-          {/* Submit Button */}
           <Button 
             type="submit" 
             className="w-full text-lg py-3"
+            variant="danger"
             isLoading={isSubmitting}
             disabled={!watchedAmount}
           >
             {watchedAmount 
-              ? `Deposit $${parseFloat(watchedAmount).toLocaleString()}`
+              ? `Withdraw $${parseFloat(watchedAmount).toLocaleString()}`
               : 'Enter an Amount'
             }
           </Button>
         </form>
       </Card>
-
-      {/* Recent Deposits Info */}
-      <div className="text-center">
-        <p className="text-xs text-gray-400">
-          Need to view your transactions?{' '}
-          <a href="/transactions" className="text-primary-600 hover:text-primary-700 font-medium">
-            View History →
-          </a>
-        </p>
-      </div>
     </div>
   )
 }
