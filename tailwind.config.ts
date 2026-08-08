@@ -10,9 +10,8 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Banking brand colors
         primary: {
-          50: '#eff6ff',
+          50:  '#eff6ff',
           100: '#dbeafe',
           200: '#bfdbfe',
           300: '#93c5fd',
@@ -20,22 +19,22 @@ const config: Config = {
           500: '#3b82f6',
           600: '#2563eb',
           700: '#1d4ed8',
-          800: '#1e3a5f',  // Main brand color
+          800: '#1e3a5f',
           900: '#1e3a8a',
           950: '#172554',
         },
         success: {
-          50: '#f0fdf4',
+          50:  '#f0fdf4',
           500: '#22c55e',
           700: '#15803d',
         },
         warning: {
-          50: '#fffbeb',
+          50:  '#fffbeb',
           500: '#f59e0b',
           700: '#b45309',
         },
         danger: {
-          50: '#fef2f2',
+          50:  '#fef2f2',
           500: '#ef4444',
           700: '#b91c1c',
         },
@@ -44,28 +43,33 @@ const config: Config = {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
+      // Safe area inset for iOS notch / home bar
+      // Consumed as: pb-safe, h-safe, mb-safe etc.
+      spacing: {
+        safe: 'env(safe-area-inset-bottom)',
+      },
       animation: {
-        'fade-in': 'fadeIn 0.3s ease-in-out',
-        'slide-up': 'slideUp 0.3s ease-out',
+        'fade-in':    'fadeIn 0.3s ease-in-out',
+        'slide-up':   'slideUp 0.3s ease-out',
         'slide-down': 'slideDown 0.3s ease-out',
-        'scale-in': 'scaleIn 0.2s ease-out',
+        'scale-in':   'scaleIn 0.2s ease-out',
       },
       keyframes: {
         fadeIn: {
-          '0%': { opacity: '0' },
+          '0%':   { opacity: '0' },
           '100%': { opacity: '1' },
         },
         slideUp: {
-          '0%': { transform: 'translateY(10px)', opacity: '0' },
-          '100%': { transform: 'translateY(0)', opacity: '1' },
+          '0%':   { transform: 'translateY(10px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)',     opacity: '1' },
         },
         slideDown: {
-          '0%': { transform: 'translateY(-10px)', opacity: '0' },
-          '100%': { transform: 'translateY(0)', opacity: '1' },
+          '0%':   { transform: 'translateY(-10px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)',      opacity: '1' },
         },
         scaleIn: {
-          '0%': { transform: 'scale(0.95)', opacity: '0' },
-          '100%': { transform: 'scale(1)', opacity: '1' },
+          '0%':   { transform: 'scale(0.95)', opacity: '0' },
+          '100%': { transform: 'scale(1)',    opacity: '1' },
         },
       },
     },
@@ -73,6 +77,21 @@ const config: Config = {
   plugins: [
     require('@tailwindcss/forms'),
     require('@tailwindcss/typography'),
+
+    // scrollbar-none — hides scrollbar on the category tab strip
+    // and any other horizontal scroll container
+    // Usage: className="overflow-x-auto scrollbar-none"
+    function ({ addUtilities }: { addUtilities: Function }) {
+      addUtilities({
+        '.scrollbar-none': {
+          '-ms-overflow-style': 'none',
+          'scrollbar-width':    'none',
+          '&::-webkit-scrollbar': {
+            display: 'none',
+          },
+        },
+      })
+    },
   ],
 }
 

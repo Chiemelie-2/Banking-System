@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/Card'
 import { VerificationActions } from './VerificationActions'
 
 export default async function VerificationsPage() {
-    const pendingUsers = await prisma.customerProfile.findMany({
+  const pendingUsers = await prisma.customerProfile.findMany({
     where: {
       verificationStatus: {
         in: ['PENDING_REVIEW', 'IN_REVIEW']
@@ -16,8 +16,6 @@ export default async function VerificationsPage() {
           id: true,
           email: true,
           createdAt: true,
-          identification: true,
-          address: true,
         }
       }
     },
@@ -25,16 +23,34 @@ export default async function VerificationsPage() {
       createdAt: 'asc'
     }
   })
+
+  // Fetch related data for each user
+  const usersWithDetails = await Promise.all(
+    pendingUsers.map(async (profile) => {
+      const identification = await prisma.identificationRecord.findUnique({
+        where: { userId: profile.userId }
+      })
+      const address = await prisma.address.findUnique({
+        where: { userId: profile.userId }
+      })
+      return {
+        ...profile,
+        identification,
+        address
+      }
+    })
+  )
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">KYC Verification</h1>
         <p className="text-gray-600 mt-1">
-          {pendingUsers.length} pending verification{pendingUsers.length !== 1 ? 's' : ''}
+          {usersWithDetails.length} pending verification{usersWithDetails.length !== 1 ? 's' : ''}
         </p>
       </div>
 
-      {pendingUsers.length === 0 ? (
+      {usersWithDetails.length === 0 ? (
         <Card>
           <div className="text-center py-12">
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
@@ -48,7 +64,7 @@ export default async function VerificationsPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {pendingUsers.map((profile) => (
+          {usersWithDetails.map((profile) => (
             <Card key={profile.userId}>
               <div className="space-y-4">
                 {/* User Header */}
@@ -68,6 +84,7 @@ export default async function VerificationsPage() {
                         {profile.firstName} {profile.lastName}
                       </h3>
                       <p className="text-sm text-gray-500">{profile.user.email}</p>
+                      <p className="text-xs text-gray-400">Submitted: {new Date(profile.user.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <span className="badge-warning">{profile.verificationStatus.replace('_', ' ')}</span>
@@ -80,37 +97,50 @@ export default async function VerificationsPage() {
                     <p className="font-medium">{profile.phoneNumber}</p>
                   </div>
                   <div>
+                    <p className="text-gray-500">Date of Birth</p>
+                    <p className="font-medium">{new Date(profile.dateOfBirth).toLocaleDateString()}</p>
+                  </div>
+                  <div>
                     <p className="text-gray-500">Nationality</p>
                     <p className="font-medium">{profile.nationality}</p>
                   </div>
-                  {profile.user.identification && (
+                  <div>
+                    <p className="text-gray-500">Gender</p>
+                    <p className="font-medium">{profile.gender}</p>
+                  </div>
+                  {profile.identification && (
                     <>
                       <div>
                         <p className="text-gray-500">ID Type</p>
-                        <p className="font-medium">{profile.user.identification.idType.replace('_', ' ')}</p>
+                        <p className="font-medium">{profile.identification.idType.replace('_', ' ')}</p>
                       </div>
                       <div>
                         <p className="text-gray-500">ID Number</p>
-                        <p className="font-medium">{profile.user.identification.idNumber}</p>
+                        <p className="font-medium">{profile.identification.idNumber}</p>
                       </div>
                     </>
                   )}
-                  {profile.user.address && (
+                  {profile.address && (
                     <div className="md:col-span-2">
                       <p className="text-gray-500">Address</p>
                       <p className="font-medium">
-                        {profile.user.address.residentialAddress}, {profile.user.address.city}, {profile.user.address.state}
+                        {profile.address.residentialAddress}
+                        {profile.address.apartmentSuite && `, ${profile.address.apartmentSuite}`}
+                      </p>
+                      <p className="text-gray-600 text-xs">
+                        {profile.address.city}, {profile.address.state} {profile.address.postalCode}
                       </p>
                     </div>
                   )}
                 </div>
 
                 {/* Document Links */}
-                {profile.user.identification?.governmentIdFile && (
+                {profile.identification?.governmentIdFile && (
                   <div>
                     <a 
-                      href={profile.user.identification.governmentIdFile} 
+                      href={profile.identification.governmentIdFile} 
                       target="_blank"
+                      rel="noopener noreferrer"
                       className="text-sm text-primary-600 hover:text-primary-700 font-medium"
                     >
                       View ID Document →

@@ -2,6 +2,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { revalidatePath } from 'next/cache'
 import bcrypt from 'bcryptjs'
 import { createEmailVerificationToken } from './helpers'
 import { uploadToCloudinary } from '@/lib/cloudinary'
@@ -72,7 +73,7 @@ export async function submitStep2(userId: string, data: any) {
         nationality: validated.nationality,
         phoneNumber: validated.phoneNumber,
         residencyStatus: 'CITIZEN',
-        verificationStatus: 'PENDING_REVIEW',
+        verificationStatus: 'PENDING_REVIEW', // This will be updated in completeRegistration
       },
       update: {
         firstName: validated.firstName,
@@ -221,17 +222,62 @@ export async function submitStep6(userId: string, formData: FormData) {
   }
 }
 
-// Final submission
+// Final submission - Mark as pending review
 export async function completeRegistration(userId: string) {
   try {
-    // Mark profile as pending review
-    await prisma.customerProfile.update({
-      where: { userId },
-      data: { verificationStatus: 'PENDING_REVIEW' }
+    // Get the user with their profile to verify everything is complete
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { 
+        profile: true, 
+        identification: true,
+        address: true
+      }
     })
+
+    if (!user) {
+      return { success: false, error: 'User not found' }
+    }
+
+    if (!user.profile) {
+      return { success: false, error: 'User profile not found. Please complete all steps.' }
+    }
+
+    if (!user.identification) {
+      return { success: false, error: 'Identification not found. Please complete the ID verification step.' }
+    }
+
+    if (!user.address) {
+      return { success: false, error: 'Address not found. Please complete the address step.' }
+    }
+
+    // Mark profile as pending review - it's now ready for admin verification
+    const updatedProfile = await prisma.customerProfile.update({
+      where: { userId },
+      data: { 
+        verificationStatus: 'PENDING_REVIEW'
+      }
+    })
+
+    // Create audit log for registration completion
+    // Note: Admin-level audit logging happens when admin approves/rejects
+    // This is just marking the profile as ready for review
     
-    return { success: true }
+    // Revalidate admin pages so new registrations appear immediately
+    revalidatePath('/admin/verifications')
+    revalidatePath('/admin/users')
+    revalidatePath('/admin/dashboard')
+
+    return { 
+      success: true, 
+      message: 'Registration complete. Your account has been submitted for verification. An admin will review your details shortly.',
+      status: updatedProfile.verificationStatus
+    }
   } catch (error) {
+    console.error('Registration completion error:', error)
+    if (error instanceof Error) {
+      return { success: false, error: error.message }
+    }
     return { success: false, error: 'Failed to complete registration' }
   }
 }
