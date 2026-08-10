@@ -6,13 +6,16 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { VerificationBadge } from '@/components/dashboard/VerificationBadge'
 import { ToggleUserStatus } from './ToggleUserStatus'
 
+export const dynamic = 'force-dynamic'
+
 export default async function UserDetailPage({
   params,
 }: {
-  params: { userId: string }
+  params: Promise<{ userId: string }>
 }) {
+  const { userId } = await params
   const user = await prisma.user.findUnique({
-    where: { id: params.userId },
+    where: { id: userId },
     include: {
       profile: true,
       identification: true,

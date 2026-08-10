@@ -1,5 +1,5 @@
 // app/(customer)/layout.tsx
-import { auth } from '@/lib/auth'
+import { auth, signOut } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { Sidebar } from '@/components/layout/Sidebar'
@@ -23,6 +23,20 @@ export default async function CustomerLayout({
   
   if (!session?.user) {
     redirect('/login')
+  }
+
+  // Re-check live account status on every request. JWT sessions don't
+  // automatically expire when an admin suspends an account mid-session,
+  // so without this check a suspended user would stay logged in and
+  // able to use the app until their token naturally expires.
+  const liveUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { status: true },
+  })
+
+  if (!liveUser || liveUser.status !== 'ACTIVE') {
+    const code = liveUser?.status === 'SUSPENDED' ? 'AccountSuspended' : 'AccountDeactivated'
+    await signOut({ redirectTo: `/login?error=CredentialsSignin&code=${code}` })
   }
 
   // Fetch user profile for sidebar

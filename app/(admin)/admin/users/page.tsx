@@ -3,14 +3,17 @@ import { prisma } from '@/lib/prisma'
 import { Card } from '@/components/ui/Card'
 import { UserTable } from '@/components/admin/UserTable'
 
+export const dynamic = 'force-dynamic'
+
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: { search?: string; page?: string }
+  searchParams: Promise<{ search?: string; page?: string }>
 }) {
-  const page = parseInt(searchParams.page || '1')
+  const { search: searchParam, page: pageParam } = await searchParams
+  const page = parseInt(pageParam || '1')
   const pageSize = 20
-  const search = searchParams.search || ''
+  const search = searchParam || ''
 
   const where = search ? {
     OR: [

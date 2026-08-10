@@ -1,29 +1,48 @@
 // app/(customer)/dashboard/page.tsx
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { redirect } from 'next/navigation'
 import { BalanceCard } from '@/components/dashboard/BalanceCard'
 import { VerificationBadge } from '@/components/dashboard/VerificationBadge'
 import { TransactionRow } from '@/components/dashboard/TransactionRow'
 import { Card } from '@/components/ui/Card'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardPage() {
   const session = await auth()
 
-  const [profile, account] = await Promise.all([
+  // Defense in depth: even with middleware and login-redirect logic in
+  // place, an admin can still land here via a stale bookmark, browser
+  // back button, or an old link. Catch it here too so refreshing this
+  // route never silently shows an admin the customer view.
+  if (session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') {
+    redirect('/admin/dashboard')
+  }
+
+  const [profile, accountBase] = await Promise.all([
     prisma.customerProfile.findUnique({
       where: { userId: session?.user?.id },
     }),
     prisma.bankAccount.findFirst({
       where: { userId: session?.user?.id },
-      include: {
-        transactions: {
-          take: 5,
-          orderBy: { createdAt: 'desc' },
-        },
-      },
     }),
   ])
+
+  // Only fetch recent transactions when an account actually exists —
+  // avoids Prisma's relation-loading engine issuing a wasted
+  // `accountId IN (NULL)` query when accountBase is null.
+  const account = accountBase
+    ? {
+        ...accountBase,
+        transactions: await prisma.transaction.findMany({
+          where: { accountId: accountBase.id },
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+        }),
+      }
+    : null
 
   // If still pending review, show waiting screen
   if (profile?.verificationStatus === 'PENDING_REVIEW' || profile?.verificationStatus === 'IN_REVIEW') {

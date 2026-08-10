@@ -4,6 +4,8 @@ import { Card } from '@/components/ui/Card'
 import { formatCurrency } from '@/lib/utils'
 import { AdjustBalanceForm } from './AdjustBalanceForm'
 
+export const dynamic = 'force-dynamic'
+
 export default async function BalancesPage() {
   const accounts = await prisma.bankAccount.findMany({
     include: {

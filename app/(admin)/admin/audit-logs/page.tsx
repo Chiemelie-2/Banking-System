@@ -3,12 +3,15 @@ import { getAuditLogs } from '@/features/admin/audit'
 import { Card } from '@/components/ui/Card'
 import { formatDate } from '@/lib/utils'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AuditLogsPage({
   searchParams,
 }: {
-  searchParams: { page?: string }
+  searchParams: Promise<{ page?: string }>
 }) {
-  const page = parseInt(searchParams.page || '1')
+  const { page: pageParam } = await searchParams
+  const page = parseInt(pageParam || '1')
   const { logs, total, pageSize, totalPages } = await getAuditLogs(page)
 
   const actionColors: Record<string, string> = {

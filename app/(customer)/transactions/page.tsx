@@ -9,10 +9,11 @@ import { TransactionType } from '@prisma/client'
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: { type?: string; page?: string }
+  searchParams: Promise<{ type?: string; page?: string }>
 }) {
   const session = await auth()
-  const page = parseInt(searchParams.page || '1')
+  const { type, page: pageParam } = await searchParams
+  const page = parseInt(pageParam || '1')
   const pageSize = 20
 
   const account = await prisma.bankAccount.findFirst({
@@ -30,7 +31,7 @@ export default async function TransactionsPage({
 
   const whereClause = {
     accountId: account.id,
-    ...(searchParams.type && { transactionType: searchParams.type as TransactionType }),
+    ...(type && { transactionType: type as TransactionType }),
   }
 
   const [transactions, totalCount] = await Promise.all([
@@ -54,17 +55,17 @@ export default async function TransactionsPage({
 
       {/* Filters */}
       <div className="flex gap-2">
-        {['ALL', 'CREDIT', 'DEBIT'].map((type) => (
+        {['ALL', 'CREDIT', 'DEBIT'].map((t) => (
           <a
-            key={type}
-            href={type === 'ALL' ? '/transactions' : `?type=${type}`}
+            key={t}
+            href={t === 'ALL' ? '/transactions' : `?type=${t}`}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              (type === 'ALL' && !searchParams.type) || searchParams.type === type
+              (t === 'ALL' && !type) || type === t
                 ? 'bg-primary-100 text-primary-800'
                 : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
             }`}
           >
-            {type === 'ALL' ? 'All' : type.charAt(0) + type.slice(1).toLowerCase()}
+            {t === 'ALL' ? 'All' : t.charAt(0) + t.slice(1).toLowerCase()}
           </a>
         ))}
       </div>
@@ -95,7 +96,7 @@ export default async function TransactionsPage({
             {[...Array(totalPages)].map((_, i) => (
               <a
                 key={i}
-                href={`?page=${i + 1}${searchParams.type ? `&type=${searchParams.type}` : ''}`}
+                href={`?page=${i + 1}${type ? `&type=${type}` : ''}`}
                 className={`px-3 py-1 rounded text-sm ${
                   page === i + 1
                     ? 'bg-primary-100 text-primary-800 font-medium'

@@ -6,7 +6,7 @@ import { useForm, FormProvider } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { signIn } from 'next-auth/react'
+import { signIn, getSession } from 'next-auth/react'
 import { toast } from 'sonner'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -27,9 +27,14 @@ export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
-  
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+
+  // Only respect an explicit callbackUrl (e.g. redirected here from a
+  // protected route). Otherwise leave it unset so we can pick the right
+  // destination by role after login, instead of always defaulting to
+  // the customer dashboard.
+  const explicitCallbackUrl = searchParams.get('callbackUrl')
   const error = searchParams.get('error')
+  const errorCode = searchParams.get('code')
 
   const methods = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -50,12 +55,28 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        toast.error(result.error || 'Invalid credentials')
+        if (result.code === 'AccountSuspended') {
+          toast.error('Your account has been suspended. Please contact support for assistance.')
+        } else if (result.code === 'AccountDeactivated') {
+          toast.error('Your account has been deactivated. Please contact support for assistance.')
+        } else {
+          toast.error('Invalid email or password')
+        }
         return
       }
 
+      // signIn() doesn't return the session/role directly — fetch it
+      // fresh so we can route admins to /admin/dashboard rather than
+      // always landing everyone on the customer dashboard.
+      const session = await getSession()
+      const role = session?.user?.role
+
+      const destination =
+        explicitCallbackUrl ||
+        (role === 'ADMIN' || role === 'SUPER_ADMIN' ? '/admin/dashboard' : '/dashboard')
+
       toast.success('Welcome back!')
-      router.push(callbackUrl)
+      router.push(destination)
       router.refresh()
     } catch (error) {
       toast.error('Something went wrong. Please try again.')
@@ -70,8 +91,9 @@ export default function LoginPage() {
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-sm text-red-700">
-            {error === 'CredentialsSignin' && 'Invalid email or password'}
-            {error === 'Account suspended' && 'Your account has been suspended'}
+            {errorCode === 'AccountSuspended' && 'Your account has been suspended. Please contact support for assistance.'}
+            {errorCode === 'AccountDeactivated' && 'Your account has been deactivated. Please contact support for assistance.'}
+            {!errorCode && error === 'CredentialsSignin' && 'Invalid email or password'}
           </p>
         </div>
       )}

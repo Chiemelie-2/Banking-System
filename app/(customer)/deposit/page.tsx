@@ -1,204 +1,218 @@
-// app/(customer)/deposit/page.tsx
-// app/(customer)/deposit/page.tsx
-'use client'
-
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+// app/(customer)/dashboard/page.tsx
+import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
+import { BalanceCard } from '@/components/dashboard/BalanceCard'
+import { VerificationBadge } from '@/components/dashboard/VerificationBadge'
+import { TransactionRow } from '@/components/dashboard/TransactionRow'
 import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { AmountInput } from '@/components/forms/AmountInput'
-import { TransactionReceipt } from '@/components/forms/TransactionReceipt'
-import { toast } from 'sonner'
-import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 
-const depositSchema = z.object({
-  amount: z.string()
-    .min(1, 'Amount is required')
-    .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, 'Enter a valid amount')
-    .refine((val) => parseFloat(val) <= 1000000, 'Maximum deposit is $1,000,000'),
-  description: z.string()
-    .max(200, 'Description too long')
-    .optional(),
-})
+export const dynamic = 'force-dynamic'
 
-type DepositForm = z.infer<typeof depositSchema>
+export default async function DashboardPage() {
+  const session = await auth()
 
-const QUICK_AMOUNTS = [100, 500, 1000, 5000, 10000]
+  const [profile, accountBase] = await Promise.all([
+    prisma.customerProfile.findUnique({
+      where: { userId: session?.user?.id },
+    }),
+    prisma.bankAccount.findFirst({
+      where: { userId: session?.user?.id },
+    }),
+  ])
 
-export default function DepositPage() {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showReceipt, setShowReceipt] = useState(false)
-  const [transactionDetails, setTransactionDetails] = useState<any>(null)
+  // Only fetch recent transactions when an account actually exists —
+  // avoids Prisma's relation-loading engine issuing a wasted
+  // `accountId IN (NULL)` query when accountBase is null.
+  const account = accountBase
+    ? {
+        ...accountBase,
+        transactions: await prisma.transaction.findMany({
+          where: { accountId: accountBase.id },
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+        }),
+      }
+    : null
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-    reset,
-  } = useForm<DepositForm>({
-    resolver: zodResolver(depositSchema),
-    defaultValues: {
-      amount: '',
-      description: '',
-    }
-  })
-
-  const watchedAmount = watch('amount')
-
-  const onSubmit = async (data: DepositForm) => {
-    setIsSubmitting(true)
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // This is a simulation - in production, this would call a server action
-    setTransactionDetails({
-      type: 'deposit',
-      amount: parseFloat(data.amount),
-      toAccount: '****4582', // Would come from user's account
-      description: data.description || 'Cash Deposit',
-      reference: `DEP-${Date.now().toString(36).toUpperCase()}`,
-      date: new Date(),
-    })
-    
-    setShowReceipt(true)
-    setIsSubmitting(false)
-  }
-
-  const handleNewTransaction = () => {
-    setShowReceipt(false)
-    setTransactionDetails(null)
-    reset()
-  }
-
-  if (showReceipt && transactionDetails) {
+  // If still pending review, show waiting screen
+  if (profile?.verificationStatus === 'PENDING_REVIEW' || profile?.verificationStatus === 'IN_REVIEW') {
     return (
-      <div className="max-w-lg mx-auto py-8">
-        <TransactionReceipt
-          {...transactionDetails}
-          onClose={() => window.location.href = '/dashboard'}
-          onNewTransaction={handleNewTransaction}
-        />
+      <div className="max-w-2xl mx-auto text-center py-12">
+        <div className="mx-auto w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-6">
+          <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Under Review</h2>
+        <p className="text-gray-600 mb-4">
+          Your account is being reviewed by our team. This usually takes 24-48 hours.
+        </p>
+        <VerificationBadge status={profile.verificationStatus} />
+        
+        <div className="mt-8 p-6 bg-white rounded-xl border border-gray-200 text-left">
+          <h3 className="font-semibold text-gray-900 mb-4">What happens next?</h3>
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <div className="flex-shrink-0 w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                <span className="text-primary-800 font-bold text-sm">1</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Document Verification</p>
+                <p className="text-xs text-gray-500">Our team reviews your submitted documents</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-shrink-0 w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                <span className="text-primary-800 font-bold text-sm">2</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Account Setup</p>
+                <p className="text-xs text-gray-500">Your account number and details are generated</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-shrink-0 w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+                <span className="text-primary-800 font-bold text-sm">3</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Welcome Email</p>
+                <p className="text-xs text-gray-500">You'll receive a confirmation email with your account details</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-          </div>
+    <div className="space-y-6">
+      {/* Welcome Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {profile?.profilePhoto && (
+            <img 
+              src={profile.profilePhoto} 
+              alt="Profile" 
+              className="w-16 h-16 rounded-full object-cover ring-2 ring-primary-100"
+            />
+          )}
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Make a Deposit</h1>
-            <p className="text-sm text-gray-500">Add virtual funds to your account</p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Welcome back, {profile?.firstName}! 👋
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <VerificationBadge status={profile?.verificationStatus} />
+              {profile?.verificationStatus === 'APPROVED' && (
+                <span className="text-xs text-gray-500">• Account verified</span>
+              )}
+            </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      <Card>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Amount Input */}
-          <div>
-            <AmountInput
-              label="Enter Amount"
-              placeholder="0.00"
-              error={errors.amount?.message}
-              {...register('amount')}
+      {/* Account Overview */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {account ? (
+          <>
+            <BalanceCard 
+              balance={account.balance.toNumber()}
+              accountNumber={account.accountNumber}
             />
-            
-            {/* Quick Amount Buttons */}
-            <div className="flex gap-2 mt-3 flex-wrap">
-              {QUICK_AMOUNTS.map((amount) => (
-                <button
-                  key={amount}
-                  type="button"
-                  onClick={() => setValue('amount', amount.toString(), { shouldValidate: true })}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    watchedAmount === amount.toString()
-                      ? 'bg-primary-100 text-primary-800 border-2 border-primary-500'
-                      : 'bg-gray-50 text-gray-700 border-2 border-transparent hover:border-gray-300'
-                  }`}
-                >
-                  ${amount.toLocaleString()}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Description */}
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">
-              Description (Optional)
-            </label>
-            <textarea
-              {...register('description')}
-              placeholder="What's this deposit for?"
-              rows={2}
-              className="input-field resize-none"
-            />
-          </div>
-
-          {/* Deposit To Account (Read Only) */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-xs text-gray-500">Depositing to</p>
-                <p className="text-sm font-medium text-gray-900">Primary Checking Account</p>
-                <p className="text-xs text-gray-500 font-mono">****4582</p>
+            <Card className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Account Details</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-sm text-gray-600">Account Number</span>
+                  <span className="text-sm font-mono font-medium text-gray-900">
+                    {account.accountNumber}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-sm text-gray-600">Routing Number</span>
+                  <span className="text-sm font-mono font-medium text-gray-900">
+                    {account.routingNumber}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-sm text-gray-600">Account Type</span>
+                  <span className="text-sm font-medium text-gray-900 capitalize">
+                    {account.accountType.toLowerCase()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-gray-600">Status</span>
+                  <span className="badge-success">Active</span>
+                </div>
               </div>
-              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </Card>
+          </>
+        ) : (
+          <Card>
+            <div className="text-center py-8">
+              <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Account Yet</h3>
+              <p className="text-sm text-gray-600">
+                Your account is being set up. You'll be notified once it's ready.
+              </p>
             </div>
-          </div>
-
-          {/* Simulation Notice */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex gap-3">
-            <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-            <p className="text-xs text-yellow-700">
-              This is a <strong>simulation</strong>. Deposits are processed by an administrator and may take a moment to reflect in your balance.
-            </p>
-          </div>
-
-          {/* Submit Button */}
-          <Button 
-            type="submit" 
-            className="w-full text-lg py-3"
-            isLoading={isSubmitting}
-            disabled={!watchedAmount}
-          >
-            {watchedAmount 
-              ? `Deposit $${parseFloat(watchedAmount).toLocaleString()}`
-              : 'Enter an Amount'
-            }
-          </Button>
-        </form>
-      </Card>
-
-      {/* Recent Deposits Info */}
-      <div className="text-center">
-        <p className="text-xs text-gray-400">
-          Need to view your transactions?{' '}
-          <a href="/transactions" className="text-primary-600 hover:text-primary-700 font-medium">
-            View History →
-          </a>
-        </p>
+          </Card>
+        )}
       </div>
+
+      {/* Quick Actions */}
+      {account && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Deposit', href: '/deposit', icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6', color: 'bg-green-50 text-green-600' },
+            { label: 'Withdraw', href: '/withdraw', icon: 'M15 12H9', color: 'bg-red-50 text-red-600' },
+            { label: 'Transfer', href: '/transfer', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', color: 'bg-blue-50 text-blue-600' },
+            { label: 'Statements', href: '/transactions', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', color: 'bg-purple-50 text-purple-600' },
+          ].map((action) => (
+            <Link
+              key={action.label}
+              href={action.href}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:border-gray-300 bg-white transition-all hover:shadow-md"
+            >
+              <div className={`w-10 h-10 rounded-full ${action.color} flex items-center justify-center`}>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={action.icon} />
+                </svg>
+              </div>
+              <span className="text-sm font-medium text-gray-900">{action.label}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Recent Transactions */}
+      {account && account.transactions.length > 0 && (
+        <Card
+          header={{
+            title: 'Recent Transactions',
+            description: 'Your latest account activity',
+          }}
+          footer={
+            <Link 
+              href="/transactions" 
+              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+            >
+              View all transactions →
+            </Link>
+          }
+        >
+          <div className="divide-y divide-gray-100">
+            {account.transactions.map((transaction) => (
+              <TransactionRow key={transaction.id} transaction={transaction} />
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   )
 }

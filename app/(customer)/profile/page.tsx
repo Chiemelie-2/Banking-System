@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { Card } from '@/components/ui/Card'
 import { VerificationBadge } from '@/components/dashboard/VerificationBadge'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ProfilePage() {
   const session = await auth()
 
