@@ -2,6 +2,7 @@
 // app/(admin)/layout.tsx
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
+import { prisma } from '@/lib/prisma'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { AdminHeader } from '@/components/admin/AdminHeader'
 
@@ -20,11 +21,19 @@ export default async function AdminLayout({
     redirect('/dashboard')
   }
 
+  const [pendingCount, pendingDepositCount] = await Promise.all([
+    prisma.customerProfile.count({
+      where: { verificationStatus: { in: ['PENDING_REVIEW', 'IN_REVIEW'] } },
+    }),
+    prisma.depositRequest.count({ where: { status: 'PENDING' } }),
+  ])
+
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminSidebar 
         adminEmail={session.user.email || ''}
-        pendingCount={0}
+        pendingCount={pendingCount}
+        pendingDepositCount={pendingDepositCount}
         role={session.user.role}
       />
       

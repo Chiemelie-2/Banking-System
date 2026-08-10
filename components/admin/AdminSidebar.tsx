@@ -27,6 +27,16 @@ const navigation = [
     icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
   },
   {
+    name: 'Deposit Requests',
+    href: '/admin/deposit-requests',
+    icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6',
+  },
+  {
+    name: 'Deposit Accounts',
+    href: '/admin/deposit-accounts',
+    icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v9a2 2 0 002 2z',
+  },
+  {
     name: 'Audit Logs',
     href: '/admin/audit-logs',
     icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
@@ -36,10 +46,11 @@ const navigation = [
 interface AdminSidebarProps {
   adminEmail: string
   pendingCount: number
+  pendingDepositCount?: number
   role: string
 }
 
-export function AdminSidebar({ adminEmail, pendingCount, role }: AdminSidebarProps) {
+export function AdminSidebar({ adminEmail, pendingCount, pendingDepositCount = 0, role }: AdminSidebarProps) {
   const pathname = usePathname()
 
   return (
@@ -87,6 +98,11 @@ export function AdminSidebar({ adminEmail, pendingCount, role }: AdminSidebarPro
                 {item.name === 'Verifications' && pendingCount > 0 && (
                   <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white">
                     {pendingCount}
+                  </span>
+                )}
+                {item.name === 'Deposit Requests' && pendingDepositCount > 0 && (
+                  <span className="ml-auto px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white">
+                    {pendingDepositCount}
                   </span>
                 )}
               </Link>

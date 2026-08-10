@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { generateCustomerId, generateAccountNumber, ROUTING_NUMBER } from '@/features/accounts/generator'
 import { sendAccountApprovedEmail, sendKYCRejectedEmail } from '@/lib/resend'
+import { adjustBalance as adjustBalanceSafe } from '@/features/transactions/integrity'
 
 // Approve customer KYC
 export async function approveCustomer(userId: string) {
@@ -119,6 +120,11 @@ export async function rejectCustomer(userId: string, reason: string) {
 }
 
 // Adjust balance (add or deduct)
+// Delegates to features/transactions/integrity.ts, which takes a row-level
+// lock (`SELECT ... FOR UPDATE`) on the account before mutating its balance.
+// Do not reimplement balance mutation here — concurrent admin actions (or an
+// admin action racing a customer transfer) on the same account must serialize
+// through that one code path or the balance can drift.
 export async function adjustBalance(
   accountId: string,
   amount: number,
@@ -126,68 +132,28 @@ export async function adjustBalance(
   description: string
 ) {
   const session = await auth()
-  
+
   if (!session?.user || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
     throw new Error('Unauthorized')
   }
 
-  return await prisma.$transaction(async (tx) => {
-    const account = await tx.bankAccount.findUnique({
-      where: { id: accountId },
-      select: { balance: true, userId: true }
-    })
+  const { transaction, newBalance } = await adjustBalanceSafe(
+    accountId,
+    amount,
+    type,
+    description,
+    session.user.id!
+  )
 
-    if (!account) throw new Error('Account not found')
-
-    const currentBalance = Number(account.balance)
-    const newBalance = type === 'CREDIT' 
-      ? currentBalance + amount 
-      : currentBalance - amount
-
-    if (newBalance < 0) {
-      throw new Error('Insufficient balance')
-    }
-
-    // Create transaction
-    const transaction = await tx.transaction.create({
-      data: {
-        accountId,
-        transactionType: type,
-        amount,
-        description,
-        status: 'COMPLETED',
-        createdByAdmin: session.user.id,
-        reference: `ADM-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5)}`.toUpperCase()
-      }
-    })
-
-    // Update balance
-    await tx.bankAccount.update({
-      where: { id: accountId },
-      data: { balance: newBalance }
-    })
-
-    // Audit log
-    await tx.auditLog.create({
-      data: {
-        adminId: session.user.id!,
-        action: type === 'CREDIT' ? 'ADD_FUNDS' : 'DEDUCT_FUNDS',
-        targetUserId: account.userId,
-        details: { 
-          accountId, 
-          amount, 
-          previousBalance: currentBalance,
-          newBalance, 
-          transactionId: transaction.id 
-        }
-      }
-    })
-
-    revalidatePath('/admin/balances')
-    revalidatePath(`/admin/users/${account.userId}`)
-    
-    return { success: true, transaction, newBalance }
+  const account = await prisma.bankAccount.findUnique({
+    where: { id: accountId },
+    select: { userId: true }
   })
+
+  revalidatePath('/admin/balances')
+  if (account) revalidatePath(`/admin/users/${account.userId}`)
+
+  return { success: true, transaction, newBalance }
 }
 
 // Suspend or activate user

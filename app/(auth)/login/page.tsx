@@ -56,7 +56,7 @@ export default function LoginPage() {
 
       if (result?.error) {
         if (result.code === 'AccountSuspended') {
-          toast.error('Your account has been suspended. Please contact support for assistance.')
+          toast.error('Your account is unable to sign in. Please contact support for assistance.')
         } else if (result.code === 'AccountDeactivated') {
           toast.error('Your account has been deactivated. Please contact support for assistance.')
         } else {

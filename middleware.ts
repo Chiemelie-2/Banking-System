@@ -1,4 +1,3 @@
-
 import { auth } from "@/lib/auth-edge"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
@@ -7,7 +6,7 @@ import type { NextRequest } from "next/server"
 const ROUTES = {
   public: ['/', '/about', '/contact'],
   auth: ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email'],
-  customer: ['/dashboard', '/transactions', '/deposit', '/withdraw', '/transfer', '/profile', '/settings'],
+  customer: ['/dashboard', '/transactions', '/deposit', '/transfer', '/profile', '/settings'],
   admin: ['/admin'],
   api: ['/api'],
 }

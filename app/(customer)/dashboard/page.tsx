@@ -1,48 +1,29 @@
 // app/(customer)/dashboard/page.tsx
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { redirect } from 'next/navigation'
 import { BalanceCard } from '@/components/dashboard/BalanceCard'
 import { VerificationBadge } from '@/components/dashboard/VerificationBadge'
 import { TransactionRow } from '@/components/dashboard/TransactionRow'
 import { Card } from '@/components/ui/Card'
 import Link from 'next/link'
 
-export const dynamic = 'force-dynamic'
-
 export default async function DashboardPage() {
   const session = await auth()
 
-  // Defense in depth: even with middleware and login-redirect logic in
-  // place, an admin can still land here via a stale bookmark, browser
-  // back button, or an old link. Catch it here too so refreshing this
-  // route never silently shows an admin the customer view.
-  if (session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN') {
-    redirect('/admin/dashboard')
-  }
-
-  const [profile, accountBase] = await Promise.all([
+  const [profile, account] = await Promise.all([
     prisma.customerProfile.findUnique({
       where: { userId: session?.user?.id },
     }),
     prisma.bankAccount.findFirst({
       where: { userId: session?.user?.id },
-    }),
-  ])
-
-  // Only fetch recent transactions when an account actually exists —
-  // avoids Prisma's relation-loading engine issuing a wasted
-  // `accountId IN (NULL)` query when accountBase is null.
-  const account = accountBase
-    ? {
-        ...accountBase,
-        transactions: await prisma.transaction.findMany({
-          where: { accountId: accountBase.id },
+      include: {
+        transactions: {
           take: 5,
           orderBy: { createdAt: 'desc' },
-        }),
-      }
-    : null
+        },
+      },
+    }),
+  ])
 
   // If still pending review, show waiting screen
   if (profile?.verificationStatus === 'PENDING_REVIEW' || profile?.verificationStatus === 'IN_REVIEW') {
@@ -176,10 +157,9 @@ export default async function DashboardPage() {
 
       {/* Quick Actions */}
       {account && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[
             { label: 'Deposit', href: '/deposit', icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6', color: 'bg-green-50 text-green-600' },
-            { label: 'Withdraw', href: '/withdraw', icon: 'M15 12H9', color: 'bg-red-50 text-red-600' },
             { label: 'Transfer', href: '/transfer', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', color: 'bg-blue-50 text-blue-600' },
             { label: 'Statements', href: '/transactions', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', color: 'bg-purple-50 text-purple-600' },
           ].map((action) => (
