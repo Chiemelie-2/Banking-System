@@ -23,10 +23,26 @@ export default async function TransferPage() {
     )
   }
 
+  const recentRequests = await prisma.transferRequest.findMany({
+    where: { fromAccountId: account.id },
+    orderBy: { createdAt: 'desc' },
+    take: 8,
+  })
+
   return (
     <TransferForm
       fromAccountNumber={account.accountNumber}
       fromBalance={account.balance.toNumber()}
+      transfersEnabled={account.transfersEnabled}
+      recentRequests={recentRequests.map((r) => ({
+        id: r.id,
+        amount: r.amount.toNumber(),
+        toAccountNumber: r.toAccountNumber,
+        reference: r.reference,
+        status: r.status,
+        rejectReason: r.rejectReason,
+        createdAt: r.createdAt.toISOString(),
+      }))}
     />
   )
 }

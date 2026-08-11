@@ -196,3 +196,34 @@ export async function toggleUserStatus(userId: string, newStatus: 'ACTIVE' | 'SU
   revalidatePath('/admin/users')
   return { success: true }
 }
+
+// Admin can turn a customer's ability to send transfers on or off, without
+// touching deposits or their account/login status at all.
+export async function toggleTransferAccess(userId: string, transfersEnabled: boolean) {
+  const session = await auth()
+
+  if (!session?.user || (session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN')) {
+    throw new Error('Unauthorized')
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.bankAccount.updateMany({
+      where: { userId },
+      data: { transfersEnabled },
+    })
+
+    await tx.auditLog.create({
+      data: {
+        adminId: session.user.id!,
+        action: transfersEnabled ? 'ENABLE_TRANSFERS' : 'DISABLE_TRANSFERS',
+        targetUserId: userId,
+      },
+    })
+  })
+
+  revalidatePath(`/admin/users/${userId}`)
+  revalidatePath('/transfer')
+  revalidatePath('/dashboard')
+
+  return { success: true }
+}

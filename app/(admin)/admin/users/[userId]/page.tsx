@@ -5,17 +5,15 @@ import { Card } from '@/components/ui/Card'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { VerificationBadge } from '@/components/dashboard/VerificationBadge'
 import { ToggleUserStatus } from './ToggleUserStatus'
-
-export const dynamic = 'force-dynamic'
+import { ToggleTransferAccess } from './ToggleTransferAccess'
 
 export default async function UserDetailPage({
   params,
 }: {
-  params: Promise<{ userId: string }>
+  params: { userId: string }
 }) {
-  const { userId } = await params
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { id: params.userId },
     include: {
       profile: true,
       identification: true,
@@ -56,6 +54,15 @@ export default async function UserDetailPage({
         <ToggleUserStatus userId={user.id} currentStatus={user.status} />
       </div>
 
+      {user.accounts[0] && (
+        <div className="flex justify-end">
+          <ToggleTransferAccess
+            userId={user.id}
+            transfersEnabled={user.accounts[0].transfersEnabled}
+          />
+        </div>
+      )}
+
       {/* Account Info */}
       {user.accounts.map((account) => (
         <Card key={account.id} header={{ title: 'Account Information' }}>
@@ -78,6 +85,14 @@ export default async function UserDetailPage({
                 account.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
               }`}>
                 {account.status}
+              </span>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Transfers</p>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                account.transfersEnabled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              }`}>
+                {account.transfersEnabled ? 'Enabled' : 'Disabled'}
               </span>
             </div>
           </div>

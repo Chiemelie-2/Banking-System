@@ -9,8 +9,7 @@ import { z } from 'zod'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { AmountInput } from '@/components/forms/AmountInput'
-import { TransactionReceipt } from '@/components/forms/TransactionReceipt'
-import { transferFunds } from '@/features/transactions/actions'
+import { requestTransfer } from '@/features/transactions/actions'
 import { formatCurrency, maskAccountNumber } from '@/lib/utils'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -28,18 +27,41 @@ const transferSchema = z.object({
 
 type TransferFormValues = z.infer<typeof transferSchema>
 
+interface RequestSummary {
+  id: string
+  amount: number
+  toAccountNumber: string
+  reference: string
+  status: string
+  rejectReason?: string | null
+  createdAt: string
+}
+
 interface TransferFormProps {
   fromAccountNumber: string
   fromBalance: number
+  transfersEnabled: boolean
+  recentRequests: RequestSummary[]
 }
 
-export function TransferForm({ fromAccountNumber, fromBalance }: TransferFormProps) {
+function statusBadge(status: string) {
+  switch (status) {
+    case 'APPROVED':
+      return <span className="badge-success">Approved</span>
+    case 'REJECTED':
+      return <span className="badge-danger">Failed</span>
+    default:
+      return <span className="badge-warning">Pending</span>
+  }
+}
+
+export function TransferForm({ fromAccountNumber, fromBalance, transfersEnabled, recentRequests }: TransferFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showReceipt, setShowReceipt] = useState(false)
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [showPending, setShowPending] = useState(false)
   const [pendingValues, setPendingValues] = useState<TransferFormValues | null>(null)
-  const [receipt, setReceipt] = useState<any>(null)
+  const [pendingResult, setPendingResult] = useState<{ reference: string; newBalance: number } | null>(null)
 
   const methods = useForm<TransferFormValues>({
     resolver: zodResolver(transferSchema),
@@ -64,7 +86,7 @@ export function TransferForm({ fromAccountNumber, fromBalance }: TransferFormPro
     if (!pendingValues) return
     setIsSubmitting(true)
 
-    const result = await transferFunds({
+    const result = await requestTransfer({
       toAccountNumber: pendingValues.toAccount,
       amount: parseFloat(pendingValues.amount),
       description: pendingValues.description,
@@ -78,36 +100,49 @@ export function TransferForm({ fromAccountNumber, fromBalance }: TransferFormPro
       return
     }
 
-    setReceipt({
-      type: 'transfer',
-      amount: parseFloat(pendingValues.amount),
-      fromAccount: maskAccountNumber(fromAccountNumber),
-      toAccount: `****${result.toAccountLast4}`,
-      description: pendingValues.description || 'Funds Transfer',
-      reference: result.reference,
-      date: new Date(),
-    })
-
+    setPendingResult({ reference: result.reference, newBalance: result.newBalance })
     setShowConfirmation(false)
-    setShowReceipt(true)
+    setShowPending(true)
     router.refresh()
   }
 
-  const handleNewTransaction = () => {
-    setShowReceipt(false)
-    setReceipt(null)
+  const handleNewTransfer = () => {
+    setShowPending(false)
+    setPendingResult(null)
     setPendingValues(null)
     reset()
+    router.refresh()
   }
 
-  if (showReceipt && receipt) {
+  if (showPending && pendingResult && pendingValues) {
     return (
       <div className="max-w-lg mx-auto py-8">
-        <TransactionReceipt
-          {...receipt}
-          onClose={() => (window.location.href = '/dashboard')}
-          onNewTransaction={handleNewTransaction}
-        />
+        <Card>
+          <div className="text-center py-6 space-y-4">
+            <div className="mx-auto w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center">
+              <svg className="w-7 h-7 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Transfer Pending Approval</h3>
+              <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">
+                {formatCurrency(parseFloat(pendingValues.amount))} has been deducted from your
+                account and is on hold. It will reach ****{pendingValues.toAccount.slice(-4)}{' '}
+                once this is approved — if it's declined instead, the funds are returned to you.
+              </p>
+            </div>
+            <p className="text-xs text-gray-400 font-mono">{pendingResult.reference}</p>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => (window.location.href = '/dashboard')}>
+                Go to Dashboard
+              </Button>
+              <Button className="flex-1" onClick={handleNewTransfer}>
+                New Transfer
+              </Button>
+            </div>
+          </div>
+        </Card>
       </div>
     )
   }
@@ -123,18 +158,33 @@ export function TransferForm({ fromAccountNumber, fromBalance }: TransferFormPro
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Transfer Funds</h1>
-            <p className="text-sm text-gray-500">Send funds to another account on this platform</p>
+            <p className="text-sm text-gray-500">Send funds to another account</p>
           </div>
         </div>
       </motion.div>
 
+      {!transfersEnabled && (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4">
+          <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div>
+            <p className="text-sm font-semibold text-red-800">Hold on — transfers are disabled</p>
+            <p className="text-sm text-red-700 mt-0.5">
+              Your account currently can't send transfers. Please contact support to find out why
+              or to have this re-enabled.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className={!transfersEnabled ? 'opacity-40 pointer-events-none select-none' : undefined}>
       <AnimatePresence mode="wait">
         {!showConfirmation ? (
           <motion.div key="form" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
             <Card>
               <FormProvider {...methods}>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                  {/* From Account — real data */}
                   <div className="bg-gray-50 rounded-lg p-4">
                     <p className="text-xs text-gray-500 mb-1">From Account</p>
                     <p className="text-sm font-medium text-gray-900">{maskAccountNumber(fromAccountNumber)}</p>
@@ -156,7 +206,7 @@ export function TransferForm({ fromAccountNumber, fromBalance }: TransferFormPro
                       <p className="text-xs text-red-600 mt-1">{errors.toAccount.message}</p>
                     )}
                     <p className="text-xs text-gray-400 mt-1">
-                      Must be an active account number on this platform.
+                      Every transfer is reviewed before it's delivered.
                     </p>
                   </div>
 
@@ -200,7 +250,7 @@ export function TransferForm({ fromAccountNumber, fromBalance }: TransferFormPro
                   <Button
                     type="submit"
                     className="w-full text-lg py-3"
-                    disabled={!watchedAmount || !watchedToAccount}
+                    disabled={!watchedAmount || !watchedToAccount || !transfersEnabled}
                   >
                     Review Transfer
                   </Button>
@@ -220,7 +270,9 @@ export function TransferForm({ fromAccountNumber, fromBalance }: TransferFormPro
                       </svg>
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900">Confirm Transfer</h3>
-                    <p className="text-sm text-gray-500 mt-1">Please review the details below</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Funds are deducted right away and held until this is approved.
+                    </p>
                   </div>
 
                   <div className="bg-gray-50 rounded-lg p-4 space-y-3">
@@ -254,6 +306,29 @@ export function TransferForm({ fromAccountNumber, fromBalance }: TransferFormPro
           )
         )}
       </AnimatePresence>
+      </div>
+
+      {recentRequests.length > 0 && !showConfirmation && (
+        <Card>
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Recent Transfers</h3>
+          <div className="space-y-2">
+            {recentRequests.map((r) => (
+              <div key={r.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                <div>
+                  <p className="text-sm text-gray-900 font-medium">
+                    {formatCurrency(r.amount)} → ****{r.toAccountNumber.slice(-4)}
+                  </p>
+                  <p className="text-xs text-gray-500 font-mono">{r.reference}</p>
+                  {r.status === 'REJECTED' && r.rejectReason && (
+                    <p className="text-xs text-red-500 mt-0.5">{r.rejectReason}</p>
+                  )}
+                </div>
+                {statusBadge(r.status)}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   )
 }

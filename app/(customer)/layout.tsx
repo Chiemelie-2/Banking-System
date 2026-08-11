@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
-import { MobileNav } from '@/components/layout/MobileNav'
+import { MobileMenuProvider } from '@/components/layout/MobileMenuContext'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -66,27 +66,26 @@ export default async function CustomerLayout({
     : null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Desktop Sidebar */}
-      <Sidebar 
-        userProfile={profile}
-        accountNumber={serializedAccount?.accountNumber ?? null}
-      />
-      
-      {/* Main Content */}
-      <div className="lg:pl-64">
-        <Header 
+    <MobileMenuProvider>
+      <div className="min-h-screen bg-gray-50">
+        {/* Sidebar (renders both the desktop rail and the mobile drawer) */}
+        <Sidebar 
           userProfile={profile}
-          account={serializedAccount}
+          accountNumber={serializedAccount?.accountNumber ?? null}
         />
         
-        <main className="py-6 px-4 sm:px-6 lg:px-8">
-          {children}
-        </main>
+        {/* Main Content */}
+        <div className="lg:pl-64">
+          <Header 
+            userProfile={profile}
+            account={serializedAccount}
+          />
+          
+          <main className="py-6 px-4 sm:px-6 lg:px-8">
+            {children}
+          </main>
+        </div>
       </div>
-      
-      {/* Mobile Navigation */}
-      <MobileNav />
-    </div>
+    </MobileMenuProvider>
   )
 }

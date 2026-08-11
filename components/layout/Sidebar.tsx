@@ -1,12 +1,13 @@
 // components/layout/Sidebar.tsx
 'use client'
 
-import { useState } from 'react'
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { formatCurrency, maskAccountNumber } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useMobileMenu } from '@/components/layout/MobileMenuContext'
 
 interface SidebarProps {
   userProfile: {
@@ -68,10 +69,133 @@ const navigation = [
 
 export function Sidebar({ userProfile, accountNumber }: SidebarProps) {
   const pathname = usePathname()
-  const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const { isOpen, close } = useMobileMenu()
+
+  // Close the mobile drawer automatically whenever the route changes, so
+  // tapping a nav link doesn't leave the overlay open behind the new page.
+  useEffect(() => {
+    close()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   return (
     <>
+      {/* Mobile Drawer */}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={close}
+              className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+              aria-hidden="true"
+            />
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'tween', duration: 0.2 }}
+              className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white lg:hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigation menu"
+            >
+              {/* Logo */}
+              <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
+                <Link href="/dashboard" className="flex items-center gap-2" onClick={close}>
+                  <div className="h-8 w-8 rounded-lg bg-primary-800 flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">B</span>
+                  </div>
+                  <span className="text-lg font-bold text-primary-800">BankingSim</span>
+                </Link>
+                <button
+                  onClick={close}
+                  aria-label="Close menu"
+                  className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* User Info */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center gap-3">
+                  {userProfile?.profilePhoto ? (
+                    <img
+                      src={userProfile.profilePhoto}
+                      alt="Profile"
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                      <span className="text-primary-800 font-medium text-sm">
+                        {userProfile?.firstName?.[0]}{userProfile?.lastName?.[0]}
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {userProfile?.firstName} {userProfile?.lastName}
+                    </p>
+                    {accountNumber && (
+                      <p className="text-xs text-gray-500">
+                        {maskAccountNumber(accountNumber)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation */}
+              <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+                {navigation.map((item) => {
+                  const isActive = pathname === item.href
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      onClick={close}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group',
+                        isActive
+                          ? 'bg-primary-50 text-primary-800'
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                      )}
+                    >
+                      <span className={cn(
+                        isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
+                      )}>
+                        {item.icon}
+                      </span>
+                      {item.name}
+                    </Link>
+                  )
+                })}
+              </nav>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-gray-200">
+                <form action="/api/auth/signout" method="POST">
+                  <button
+                    type="submit"
+                    className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Sign Out
+                  </button>
+                </form>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Desktop Sidebar */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200">

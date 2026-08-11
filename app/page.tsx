@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useSession, signOut } from 'next-auth/react'
 
 /* ─────────────────────────────────────────────────────────────────
    BANKINGSIM — Homepage v2
@@ -274,6 +275,8 @@ function SignOnWidget() {
 export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [activeCat, setActiveCat] = useState(0)
+  const { data: session, status } = useSession()
+  const isLoggedIn = status === 'authenticated'
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -382,9 +385,12 @@ export default function HomePage() {
             </a>
           </div>
 
-          {/* Mobile: Sign On */}
-          <Link href="/login" className="flex-shrink-0 text-[13px] font-semibold text-primary-600 whitespace-nowrap lg:hidden">
-            Sign On
+          {/* Mobile: Sign On / Dashboard */}
+          <Link
+            href={isLoggedIn ? '/dashboard' : '/login'}
+            className="flex-shrink-0 text-[13px] font-semibold text-primary-600 whitespace-nowrap lg:hidden"
+          >
+            {isLoggedIn ? 'Dashboard' : 'Sign On'}
           </Link>
         </div>
 
@@ -419,12 +425,43 @@ export default function HomePage() {
               ))}
             </nav>
             <div className="p-5 border-t border-gray-100">
-              <Link href="/login" className="block w-full text-center bg-primary-600 text-white font-semibold py-3 rounded text-sm">
-                Sign On
-              </Link>
-              <Link href="/register" className="block w-full text-center text-primary-600 font-semibold py-3 text-sm mt-1">
-                Register
-              </Link>
+              {isLoggedIn ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMenuOpen(false)}
+                    className="block w-full text-center bg-primary-600 text-white font-semibold py-3 rounded text-sm"
+                  >
+                    Go to Dashboard
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      signOut({ callbackUrl: '/' })
+                    }}
+                    className="block w-full text-center text-primary-600 font-semibold py-3 text-sm mt-1"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={() => setMenuOpen(false)}
+                    className="block w-full text-center bg-primary-600 text-white font-semibold py-3 rounded text-sm"
+                  >
+                    Sign On
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setMenuOpen(false)}
+                    className="block w-full text-center text-primary-600 font-semibold py-3 text-sm mt-1"
+                  >
+                    Register
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

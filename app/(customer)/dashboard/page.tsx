@@ -159,14 +159,21 @@ export default async function DashboardPage() {
       {account && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[
-            { label: 'Deposit', href: '/deposit', icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6', color: 'bg-green-50 text-green-600' },
-            { label: 'Transfer', href: '/transfer', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', color: 'bg-blue-50 text-blue-600' },
-            { label: 'Statements', href: '/transactions', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', color: 'bg-purple-50 text-purple-600' },
+            { label: 'Deposit', href: '/deposit', icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6', color: 'bg-green-50 text-green-600', disabled: false },
+            { label: 'Transfer', href: '/transfer', icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', color: 'bg-blue-50 text-blue-600', disabled: !account.transfersEnabled },
+            { label: 'Statements', href: '/transactions', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', color: 'bg-purple-50 text-purple-600', disabled: false },
           ].map((action) => (
             <Link
               key={action.label}
-              href={action.href}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:border-gray-300 bg-white transition-all hover:shadow-md"
+              href={action.disabled ? '#' : action.href}
+              onClick={action.disabled ? (e) => e.preventDefault() : undefined}
+              aria-disabled={action.disabled}
+              title={action.disabled ? 'Transfers are currently disabled on your account' : undefined}
+              className={`flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 bg-white transition-all ${
+                action.disabled
+                  ? 'opacity-40 cursor-not-allowed'
+                  : 'hover:border-gray-300 hover:shadow-md'
+              }`}
             >
               <div className={`w-10 h-10 rounded-full ${action.color} flex items-center justify-center`}>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
