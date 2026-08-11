@@ -1,7 +1,7 @@
 // components/layout/MobileMenuContext.tsx
 'use client'
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback } from 'react'
 
 interface MobileMenuContextValue {
   isOpen: boolean
@@ -10,15 +10,9 @@ interface MobileMenuContextValue {
   toggle: () => void
 }
 
-const MobileMenuContext = createContext<MobileMenuContextValue | undefined>(undefined)
+const MobileMenuContext = createContext<MobileMenuContextValue | null>(null)
 
-/**
- * Shared open/close state for the mobile nav drawer. The hamburger button
- * lives in the Header, the drawer itself lives in the Sidebar — they're
- * sibling Client Components under a Server Component layout, so they need
- * a shared context rather than prop drilling from the (server) layout.
- */
-export function MobileMenuProvider({ children }: { children: ReactNode }) {
+export function MobileMenuProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
 
   const open = useCallback(() => setIsOpen(true), [])
@@ -33,9 +27,9 @@ export function MobileMenuProvider({ children }: { children: ReactNode }) {
 }
 
 export function useMobileMenu() {
-  const context = useContext(MobileMenuContext)
-  if (!context) {
+  const ctx = useContext(MobileMenuContext)
+  if (!ctx) {
     throw new Error('useMobileMenu must be used within a MobileMenuProvider')
   }
-  return context
+  return ctx
 }

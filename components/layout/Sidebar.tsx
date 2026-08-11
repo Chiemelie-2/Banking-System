@@ -1,7 +1,6 @@
 // components/layout/Sidebar.tsx
 'use client'
 
-import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -67,53 +66,81 @@ const navigation = [
   },
 ]
 
+function SidebarNav({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string
+  onNavigate?: () => void
+}) {
+  return (
+    <nav className="flex-1 px-3 py-4 space-y-1">
+      {navigation.map((item) => {
+        const isActive = pathname === item.href
+        return (
+          <Link
+            key={item.name}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group',
+              isActive
+                ? 'bg-primary-50 text-primary-800'
+                : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+            )}
+          >
+            <span className={cn(
+              isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
+            )}>
+              {item.icon}
+            </span>
+            {item.name}
+          </Link>
+        )
+      })}
+    </nav>
+  )
+}
+
 export function Sidebar({ userProfile, accountNumber }: SidebarProps) {
   const pathname = usePathname()
-  const { isOpen, close } = useMobileMenu()
-
-  // Close the mobile drawer automatically whenever the route changes, so
-  // tapping a nav link doesn't leave the overlay open behind the new page.
-  useEffect(() => {
-    close()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname])
+  const { isOpen: isMobileOpen, close: closeMobileMenu } = useMobileMenu()
 
   return (
     <>
-      {/* Mobile Drawer */}
+      {/* Mobile drawer */}
       <AnimatePresence>
-        {isOpen && (
-          <>
+        {isMobileOpen && (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={close}
-              className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-              aria-hidden="true"
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 bg-black/50"
+              onClick={closeMobileMenu}
             />
-            <motion.aside
+            {/* Panel */}
+            <motion.div
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ type: 'tween', duration: 0.2 }}
-              className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-white lg:hidden"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Navigation menu"
+              transition={{ type: 'tween', duration: 0.25, ease: 'easeOut' }}
+              className="absolute inset-y-0 left-0 flex w-72 flex-col bg-white shadow-2xl"
             >
-              {/* Logo */}
+              {/* Logo + close */}
               <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
-                <Link href="/dashboard" className="flex items-center gap-2" onClick={close}>
+                <Link href="/dashboard" className="flex items-center gap-2" onClick={closeMobileMenu}>
                   <div className="h-8 w-8 rounded-lg bg-primary-800 flex items-center justify-center">
                     <span className="text-white font-bold text-sm">B</span>
                   </div>
                   <span className="text-lg font-bold text-primary-800">BankingSim</span>
                 </Link>
                 <button
-                  onClick={close}
+                  onClick={closeMobileMenu}
                   aria-label="Close menu"
-                  className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100"
+                  className="p-2 -mr-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -151,31 +178,7 @@ export function Sidebar({ userProfile, accountNumber }: SidebarProps) {
               </div>
 
               {/* Navigation */}
-              <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-                {navigation.map((item) => {
-                  const isActive = pathname === item.href
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      onClick={close}
-                      className={cn(
-                        'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group',
-                        isActive
-                          ? 'bg-primary-50 text-primary-800'
-                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                      )}
-                    >
-                      <span className={cn(
-                        isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
-                      )}>
-                        {item.icon}
-                      </span>
-                      {item.name}
-                    </Link>
-                  )
-                })}
-              </nav>
+              <SidebarNav pathname={pathname} onNavigate={closeMobileMenu} />
 
               {/* Footer */}
               <div className="px-6 py-4 border-t border-gray-200">
@@ -191,8 +194,8 @@ export function Sidebar({ userProfile, accountNumber }: SidebarProps) {
                   </button>
                 </form>
               </div>
-            </motion.aside>
-          </>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -239,30 +242,7 @@ export function Sidebar({ userProfile, accountNumber }: SidebarProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-1">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group',
-                    isActive 
-                      ? 'bg-primary-50 text-primary-800' 
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                  )}
-                >
-                  <span className={cn(
-                    isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
-                  )}>
-                    {item.icon}
-                  </span>
-                  {item.name}
-                </Link>
-              )
-            })}
-          </nav>
+          <SidebarNav pathname={pathname} />
 
           {/* Footer */}
           <div className="px-6 py-4 border-t border-gray-200">

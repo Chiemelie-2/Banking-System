@@ -17,6 +17,16 @@ const middleware = auth((req) => {
   const isLoggedIn = !!req.auth
   const userRole = req.auth?.user?.role
 
+  // Send logged-in users straight to their dashboard instead of the
+  // marketing homepage (which shows Sign On / Register CTAs meant for
+  // logged-out visitors).
+  if (path === '/' && isLoggedIn) {
+    const redirectTo = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
+      ? '/admin/dashboard'
+      : '/dashboard'
+    return NextResponse.redirect(new URL(redirectTo, nextUrl))
+  }
+
   // Allow public routes
   if (ROUTES.public.includes(path) || path === '/') {
     return NextResponse.next()
